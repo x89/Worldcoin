@@ -1,10 +1,10 @@
-Worldcoin - a fork of Litecoin version with fast block time and faster confirmations (4 confirmations needed instead of 6). Like Litecoin it uses scrypt as a proof of work scheme.
+Worldcoin - a fork of Litecoin version with fast block time and faster confirmations (2 confirmations needed instead of 6). Like Litecoin it uses scrypt as a proof of work scheme.
 
-	- 15 seconds block target
-	- Difficulty retargets every 0.35 day
-	- Total coins will be around 265 millions. 
-	- Each block will have 32 coins per block at the beginning, it will be halved every two years (or 4,147,200 blocks).
-	- The default ports are 11081(connect) and 11082(json rpc).
+	- 30 second block target
+	- Difficulty retargets every 1 hour
+	- Total coins will be around 265 million. 
+	- Each block will have 64 coins per block then decrease 1% per week (or 20,160 blocks) with a minimum reward of 1 WDC.
+	- The default ports are 11081 (connect) and 11082 (json rpc).
 
 
 Development process

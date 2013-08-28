@@ -1,9 +1,8 @@
-
 TEMPLATE = app
 TARGET =
-VERSION = 0.6.3
+VERSION = 0.6.4.5
 INCLUDEPATH += src src/json src/qt
-DEFINES += QT_GUI BOOST_THREAD_USE_LIB BOOST_SPIRIT_THREADSAFE USE_IPV6
+DEFINES += QT_GUI BOOST_THREAD_USE_LIB BOOST_SPIRIT_THREADSAFE USE_IPV6 __NO_SYSTEM_INCLUDES
 CONFIG += no_include_pwd
 
 # for boost 1.37, add -mt to the boost libraries
@@ -15,8 +14,18 @@ CONFIG += no_include_pwd
 # Dependency library locations can be customized with:
 #    BOOST_INCLUDE_PATH, BOOST_LIB_PATH, BDB_INCLUDE_PATH,
 #    BDB_LIB_PATH, OPENSSL_INCLUDE_PATH and OPENSSL_LIB_PATH respectively
-# Change following your build environment
-# I am using mingw to build
+
+#For compiling in Windows:
+#BOOST_LIB_SUFFIX=-mgw47-mt-sd-1_53
+#BOOST_INCLUDE_PATH='c:/MinGW-devel/boost_1_53_0'
+#BOOST_LIB_PATH=c:/MinGW-devel/boost_1_53_0/stage/lib
+#BDB_INCLUDE_PATH=c:/MinGW-devel/db-4.8.30.NC/build_unix
+#BDB_LIB_PATH=c:/MinGW-devel/db-4.8.30.NC/build_unix
+#OPENSSL_INCLUDE_PATH=c:/MinGW-devel/openssl-1.0.1e/include
+#OPENSSL_LIB_PATH=c:/MinGW-devel/openssl-1.0.1e
+#MINIUPNPC_INCLUDE_PATH=c:/MinGW-devel/miniupnpc-1.8
+#MINIUPNPC_LIB_PATH=c:/MinGW-devel/miniupnpc-1.8
+
 
 OBJECTS_DIR = build
 MOC_DIR = build
@@ -95,7 +104,7 @@ contains(BITCOIN_NEED_QT_PLUGINS, 1) {
     DEFINES += HAVE_BUILD_INFO
 }
 
-QMAKE_CXXFLAGS_WARN_ON = -fdiagnostics-show-option -Wall -Wextra -Wformat -Wformat-security -Wno-unused-parameter  
+QMAKE_CXXFLAGS_WARN_ON = -fdiagnostics-show-option -Wall -Wextra -Wformat -Wformat-security -Wno-unused-parameter
 
 # Input
 DEPENDPATH += src src/json src/qt
@@ -291,7 +300,7 @@ OTHER_FILES += \
 # platform specific defaults, if not overridden on command line
 isEmpty(BOOST_LIB_SUFFIX) {
     macx:BOOST_LIB_SUFFIX = -mt
-    windows:BOOST_LIB_SUFFIX =
+    windows:BOOST_LIB_SUFFIX = -mgw47-mt-s-1_53
 }
 
 isEmpty(BOOST_THREAD_LIB_SUFFIX) {
@@ -348,9 +357,9 @@ macx:TARGET = "Worldcoin-Qt"
 # Set libraries and includes at end, to use platform-defined defaults if not overridden
 INCLUDEPATH += $$BOOST_INCLUDE_PATH $$BDB_INCLUDE_PATH $$OPENSSL_INCLUDE_PATH $$QRENCODE_INCLUDE_PATH
 LIBS += $$join(BOOST_LIB_PATH,,-L,) $$join(BDB_LIB_PATH,,-L,) $$join(OPENSSL_LIB_PATH,,-L,) $$join(QRENCODE_LIB_PATH,,-L,)
-LIBS += -lssl -lcrypto -ldb_cxx$$BDB_LIB_SUFFIX 
+LIBS += -lssl -lcrypto -ldb_cxx$$BDB_LIB_SUFFIX
 # -lgdi32 has to happen after -lcrypto (see  #681)
-windows:LIBS += -lole32 -luuid -lgdi32 
+windows:LIBS += -lws2_32 -lmswsock -lole32 -loleaut32 -luuid -lgdi32
 LIBS += -lboost_system$$BOOST_LIB_SUFFIX -lboost_filesystem$$BOOST_LIB_SUFFIX -lboost_program_options$$BOOST_LIB_SUFFIX -lboost_thread$$BOOST_THREAD_LIB_SUFFIX
 
 contains(RELEASE, 1) {

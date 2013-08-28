@@ -830,23 +830,55 @@ uint256 static GetOrphanRoot(const CBlock* pblock)
     return pblock->GetHash();
 }
 
+static const int64 nDiffChangeTarget = 600000;
+static const int64 patchBlockRewardDuration = 20160;
 
+float static GetWDCSubsidy(int nHeight) {
+	float nSubsidy = 64;
+	//find how many blocks have been solved since v1 patch origin
+	int blocks = nHeight - nDiffChangeTarget;
+	float weeks = blocks / patchBlockRewardDuration;
 
-int64 static GetBlockValue(int nHeight, int64 nFees)
-{
-    int64 nSubsidy = 32 * COIN;
+	//for each week that has passed, decrease reward by 1%
+	for(int i = 0; i < weeks; i++) {
+		nSubsidy *= .99;
+	}
 
-	// Subsidy is cut in half every 4,147,200 blocks, which will occur approximately every 2 years
-	nSubsidy >>= (nHeight / 4147200); // Worldcoin: 4147.2K blocks in ~2 years
+	return nSubsidy;
 
-    return nSubsidy + nFees;
 }
+
+int64 static GetBlockValue(int nHeight, int64 nFees) {
+	int64 nSubsidy = 1 * COIN;
+
+	if(nHeight < nDiffChangeTarget) {
+		//this is pre-patch, reward is 32.
+		nSubsidy = 32 * COIN;
+	} else {
+		//patch takes effect after 600,000 blocks solved
+		nSubsidy = GetWDCSubsidy(nHeight) * COIN;
+	}
+
+	//make sure the reward is at least 1 WDC
+	if(nSubsidy < 1 * COIN) {
+		nSubsidy = 1 * COIN;
+	}
+
+	return nSubsidy + nFees;
+}
+
+
 
 
 
 static const int64 nTargetTimespan = 0.35 *24 * 60 * 60;	// Worldcoin: 0.35 day
 static const int64 nTargetSpacing = 15;						// Worldcoin: 15 sec
 static const int64 nInterval = nTargetTimespan / nTargetSpacing;
+static const int64 nTargetTimespanRe = 60 * 60; // 60 Minutes
+static const int64 nTargetSpacingRe = 1 * 30; // Worldcoin: 30 seconds
+static const int64 nIntervalRe = nTargetTimespanRe / nTargetSpacingRe;
+
+
 
 //
 // minimum amount of work that could possibly be required nTime after
@@ -861,12 +893,22 @@ unsigned int ComputeMinWork(unsigned int nBase, int64 nTime)
 
     CBigNum bnResult;
     bnResult.SetCompact(nBase);
+
+
     while (nTime > 0 && bnResult < bnProofOfWorkLimit)
     {
-        // Maximum 400% adjustment...
-        bnResult *= 4;
-        // ... in best-case exactly 4-times-normal target time
-        nTime -= nTargetTimespan*4;
+
+        if(nBestHeight+1<nDiffChangeTarget){
+            // Maximum 400% adjustment...
+            bnResult *= 4;
+            // ... in best-case exactly 4-times-normal target time
+            nTime -= nTargetTimespan*4;
+        } else {
+            // Maximum 10% adjustment...
+            bnResult = (bnResult * 110) / 100;
+            // ... in best-case exactly 4-times-normal target time
+            nTime -= nTargetTimespanRe*4;
+        }
     }
     if (bnResult > bnProofOfWorkLimit)
         bnResult = bnProofOfWorkLimit;
@@ -877,39 +919,47 @@ unsigned int static GetNextWorkRequired(const CBlockIndex* pindexLast, const CBl
 {
     unsigned int nProofOfWorkLimit = bnProofOfWorkLimit.GetCompact();
 
+    int nHeight = pindexLast->nHeight + 1;
+    bool fNewDifficultyProtocol = (nHeight >= nDiffChangeTarget || fTestNet);
+    int blockstogoback = 0;
+    //set default to pre-v6.4.3 patch values
+    int64 retargetTimespan = nTargetTimespan;
+    int64 retargetSpacing = nTargetSpacing;
+    int64 retargetInterval = nInterval;
     // Genesis block
-    if (pindexLast == NULL)
-        return nProofOfWorkLimit;
+    if (pindexLast == NULL) return nProofOfWorkLimit;
 
-    // Only change once per interval
-    if ((pindexLast->nHeight+1) % nInterval != 0)
-    {
-        // Special difficulty rule for testnet:
-        if (fTestNet)
-        {
-            // If the new block's timestamp is more than 2* 10 minutes
-            // then allow mining of a min-difficulty block.
-            if (pblock->nTime > pindexLast->nTime + nTargetSpacing*2)
-                return nProofOfWorkLimit;
-            else
-            {
-                // Return the last non-special-min-difficulty-rules-block
-                const CBlockIndex* pindex = pindexLast;
-                while (pindex->pprev && pindex->nHeight % nInterval != 0 && pindex->nBits == nProofOfWorkLimit)
-                    pindex = pindex->pprev;
-                return pindex->nBits;
-            }
-        }
-
-        return pindexLast->nBits;
+    //if patch v6.4.3 changes are in effect for block num, alter retarget values 
+    if(fNewDifficultyProtocol) {
+      retargetTimespan = nTargetTimespanRe;
+      retargetSpacing = nTargetSpacingRe;
+      retargetInterval = nIntervalRe;
     }
-
+    
+    // Only change once per interval
+    if ((pindexLast->nHeight+1) % retargetInterval != 0){
+      // Special difficulty rule for testnet:
+      if (fTestNet){
+	// If the new block's timestamp is more than 2* 10 minutes
+	// then allow mining of a min-difficulty block.
+	if (pblock->nTime > pindexLast->nTime + retargetSpacing*2)
+	  return nProofOfWorkLimit;
+	else {
+	  // Return the last non-special-min-difficulty-rules-block
+	  const CBlockIndex* pindex = pindexLast;
+	  while (pindex->pprev && pindex->nHeight % retargetInterval != 0 && pindex->nBits == nProofOfWorkLimit) 
+	    pindex = pindex->pprev;
+	  return pindex->nBits;
+	}
+      }
+      return pindexLast->nBits;
+    }
+    
     // Worldcoin: This fixes an issue where a 51% attack can change difficulty at will.
     // Go back the full period unless it's the first retarget after genesis. Code courtesy of Art Forz
-    int blockstogoback = nInterval-1;
-    if ((pindexLast->nHeight+1) != nInterval)
-        blockstogoback = nInterval;
-
+    blockstogoback = retargetInterval-1;
+    if ((pindexLast->nHeight+1) != retargetInterval) blockstogoback = retargetInterval;
+    
     // Go back by what we want to be 14 days worth of blocks
     const CBlockIndex* pindexFirst = pindexLast;
     for (int i = 0; pindexFirst && i < blockstogoback; i++)
@@ -919,25 +969,30 @@ unsigned int static GetNextWorkRequired(const CBlockIndex* pindexLast, const CBl
     // Limit adjustment step
     int64 nActualTimespan = pindexLast->GetBlockTime() - pindexFirst->GetBlockTime();
     printf("  nActualTimespan = %"PRI64d"  before bounds\n", nActualTimespan);
-    if (nActualTimespan < nTargetTimespan/4)
-        nActualTimespan = nTargetTimespan/4;
-    if (nActualTimespan > nTargetTimespan*4)
-        nActualTimespan = nTargetTimespan*4;
 
-    // Retarget
+
+
     CBigNum bnNew;
     bnNew.SetCompact(pindexLast->nBits);
+    
+    if (nActualTimespan < retargetTimespan/4)
+      nActualTimespan = retargetTimespan/4;
+    if (nActualTimespan > retargetTimespan*4)
+      nActualTimespan = retargetTimespan*4;
+    // Retarget
     bnNew *= nActualTimespan;
-    bnNew /= nTargetTimespan;
+    bnNew /= retargetTimespan;
+    /// debug print
+    printf("GetNextWorkRequired RETARGET \n");
+    printf("retargetTimespan = %"PRI64d"    nActualTimespan = %"PRI64d"\n", retargetTimespan, nActualTimespan);
+    printf("Before: %08x  %s\n", pindexLast->nBits, CBigNum().SetCompact(pindexLast->nBits).getuint256().ToString().c_str());
+    printf("After:  %08x  %s\n", bnNew.GetCompact(), bnNew.getuint256().ToString().c_str());
+    
 
     if (bnNew > bnProofOfWorkLimit)
         bnNew = bnProofOfWorkLimit;
 
-    /// debug print
-    printf("GetNextWorkRequired RETARGET\n");
-    printf("nTargetTimespan = %"PRI64d"    nActualTimespan = %"PRI64d"\n", nTargetTimespan, nActualTimespan);
-    printf("Before: %08x  %s\n", pindexLast->nBits, CBigNum().SetCompact(pindexLast->nBits).getuint256().ToString().c_str());
-    printf("After:  %08x  %s\n", bnNew.GetCompact(), bnNew.getuint256().ToString().c_str());
+
 
     return bnNew.GetCompact();
 }
@@ -2002,12 +2057,12 @@ bool LoadBlockIndex(bool fAllowNew)
 		// block.GetHash() = 7231b064d3e620c55960abce2963ea19e1c3ffb6f5ff70e975114835a7024107
 		// hashGenesisBlock = 7231b064d3e620c55960abce2963ea19e1c3ffb6f5ff70e975114835a7024107
 		// block.hashMerkleRoot = 4fe8c1ba0a102fea0643287bb22ce7469ecb9b690362013f269a423fefa77b6e
-		// CBlock(hash=7231b064d3e620c55960, PoW=ecab9c4d0cff0d84a093, ver=1, hashPrevBlock=00000000000000000000, 
+		// CBlock(hash=7231b064d3e620c55960, PoW=ecab9c4d0cff0d84a093, ver=1, hashPrevBlock=00000000000000000000,
 		//     hashMerkleRoot=4fe8c1ba0a, nTime=1368503907, nBits=1e0ffff0, nNonce=102158625, vtx=1)
 		//   CTransaction(hash=4fe8c1ba0a, ver=1, vin.size=1, vout.size=1, nLockTime=0)
 		//     CTxIn(COutPoint(0000000000, -1), coinbase 04ffff001d01044c534d61792031332c20323031332031313a3334706d204544543a20552e532e2063727564652066757475726573207765726520757020302e332070657263656e74206174202439352e343120612062617272656c)
 		//     CTxOut(nValue=50.00000000, scriptPubKey=040184710fa689ad5023690c80f3a4)
-		//   vMerkleTree: 4fe8c1ba0a 
+		//   vMerkleTree: 4fe8c1ba0a
 
         // Genesis block
         const char* pszTimestamp = "May 13, 2013 11:34pm EDT: U.S. crude futures were up 0.3 percent at $95.41 a barrel";
@@ -2938,7 +2993,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv)
     }
 
 
-    else if (strCommand == "alert")
+    else if (strCommand == "wdcalert")
     {
         CAlert alert;
         vRecv >> alert;
