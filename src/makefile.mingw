@@ -5,32 +5,33 @@
 USE_UPNP:=0
 
 INCLUDEPATHS= \
- -I"C:\boost_1_53_0" \
- -I"C:\db-4.8.30.NC/build_unix" \
- -I"C:\openssl-1.0.1e/include" 
+ -I"C:\MinGW-devel\boost_1_53_0" \
+ -I"C:\MinGW-devel\db-4.8.30.NC\build_unix" \
+ -I"C:\MinGW-devel\openssl-1.0.1e\include"
 
 LIBPATHS= \
- -L"C:\boost_1_53_0\stage\lib" \
- -L"C:\db-4.8.30.NC/build_unix" \
- -L"C:\openssl-1.0.1e" 
+ -L"C:\MinGW-devel\boost_1_53_0\stage\lib" \
+ -L"C:\MinGW-devel\db-4.8.30.NC\build_unix" \
+ -L"C:\MinGW-devel\openssl-1.0.1e"
 
 LIBS= \
- -l boost_system-mgw45-mt-s-1_53 \
- -l boost_filesystem-mgw45-mt-s-1_53 \
- -l boost_program_options-mgw45-mt-s-1_53 \
- -l boost_thread-mgw45-mt-s-1_53 \
+ -l boost_system-mgw47-mt-s-1_53 \
+ -l boost_filesystem-mgw47-mt-s-1_53 \
+ -l boost_program_options-mgw47-mt-s-1_53 \
+ -l boost_thread-mgw47-mt-s-1_53 \
  -l db_cxx \
  -l ssl \
  -l crypto
 
 DEFS=-DWIN32 -D_WINDOWS -DBOOST_THREAD_USE_LIB -DBOOST_SPIRIT_THREADSAFE -DUSE_IPV6 -D__NO_SYSTEM_INCLUDES
 DEBUGFLAGS=-g
-CFLAGS=-mthreads -O2 -w -Wall -Wextra -Wformat -Wformat-security -Wno-unused-parameter $(DEBUGFLAGS) $(DEFS) $(INCLUDEPATHS)
+CFLAGS=-mthreads -O2 -w -Wall -Wextra -Wformat -Wformat-security -Wno-unused-parameter $(DEBUGFLAGS) $(DEFS) $(INCLUDEPATHS) -static 
 
 TESTDEFS = -DTEST_DATA_DIR=$(abspath test/data)
 
 ifdef USE_UPNP
- LIBPATHS += -L"C:\upnpc"
+ INCLUDEPATHS += -I"C:\MinGW-devel\miniupnpc-1.8"
+ LIBPATHS += -L"C:\MinGW-devel\miniupnpc-1.8"
  LIBS += -l miniupnpc -l iphlpapi
  DEFS += -DSTATICLIB -DUSE_UPNP=$(USE_UPNP)
 endif
@@ -84,10 +85,10 @@ obj-test/%.o: test/%.cpp $(HEADERS)
 	g++ -c $(TESTDEFS) $(CFLAGS) -o $@ $<
 
 test_worldcoin.exe: $(TESTOBJS) $(filter-out obj/init.o,$(OBJS:obj/%=obj/%))
-	g++ $(CFLAGS) -o $@ $(LIBPATHS) $^ $(LIBS)
+	g++ $(CFLAGS) -o $@ $(LIBPATHS) $^ -lboost_unit_test_framework $(LIBS)
 
 clean:
-	rm -f worldcoind.exe test_worldcoin.exe
-	rm -f obj/*.o
-	rm -f obj-test/*.o
-	rm -f build.h
+	-del /Q worldcoind test_worldcoin
+	-del /Q obj\*
+	-del /Q obj-test\*
+	-del /Q build.h
