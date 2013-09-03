@@ -833,35 +833,32 @@ uint256 static GetOrphanRoot(const CBlock* pblock)
 static const int64 nDiffChangeTarget = 600000;
 static const int64 patchBlockRewardDuration = 20160;
 
-float static GetWDCSubsidy(int nHeight) {
-	float nSubsidy = 64;
-	//find how many blocks have been solved since v1 patch origin
+int64 GetWDCSubsidy(int nHeight) {
+	// thanks to RealSolid for helping out with this code
+	int64 qSubsidy = 64*COIN;
 	int blocks = nHeight - nDiffChangeTarget;
-	float weeks = blocks / patchBlockRewardDuration;
-
+	int weeks = (blocks / patchBlockRewardDuration)+1;
 	//for each week that has passed, decrease reward by 1%
-	for(int i = 0; i < weeks; i++) {
-		nSubsidy *= .99;
-	}
-
-	return nSubsidy;
+	for(int i = 0; i < weeks; i++)  qSubsidy -= (qSubsidy/100);  
+	return qSubsidy;
 
 }
 
+
 int64 static GetBlockValue(int nHeight, int64 nFees) {
-	int64 nSubsidy = 1 * COIN;
+	int64 nSubsidy = COIN;
 
 	if(nHeight < nDiffChangeTarget) {
 		//this is pre-patch, reward is 32.
 		nSubsidy = 32 * COIN;
 	} else {
 		//patch takes effect after 600,000 blocks solved
-		nSubsidy = GetWDCSubsidy(nHeight) * COIN;
+		nSubsidy = GetWDCSubsidy(nHeight);
 	}
 
 	//make sure the reward is at least 1 WDC
-	if(nSubsidy < 1 * COIN) {
-		nSubsidy = 1 * COIN;
+	if(nSubsidy < COIN) {
+		nSubsidy = COIN;
 	}
 
 	return nSubsidy + nFees;
@@ -930,7 +927,7 @@ unsigned int static GetNextWorkRequired(const CBlockIndex* pindexLast, const CBl
     if (pindexLast == NULL) return nProofOfWorkLimit;
 
     //if patch v6.4.3 changes are in effect for block num, alter retarget values 
-    if(fNewDifficultyProtocol) {
+   if(fNewDifficultyProtocol) {
       retargetTimespan = nTargetTimespanRe;
       retargetSpacing = nTargetSpacingRe;
       retargetInterval = nIntervalRe;
@@ -975,10 +972,16 @@ unsigned int static GetNextWorkRequired(const CBlockIndex* pindexLast, const CBl
     CBigNum bnNew;
     bnNew.SetCompact(pindexLast->nBits);
     
-    if (nActualTimespan < retargetTimespan/4)
-      nActualTimespan = retargetTimespan/4;
-    if (nActualTimespan > retargetTimespan*4)
-      nActualTimespan = retargetTimespan*4;
+		// thanks to RealSolid for this code
+		if(fNewDifficultyProtocol) {
+			if (nActualTimespan < (retargetTimespan - (retargetTimespan/10)) ) nActualTimespan = (retargetTimespan - (retargetTimespan/10));
+			if (nActualTimespan > (retargetTimespan + (retargetTimespan/10)) ) nActualTimespan = (retargetTimespan + (retargetTimespan/10));
+		}
+		else {
+			if (nActualTimespan < retargetTimespan/4) nActualTimespan = retargetTimespan/4;
+			if (nActualTimespan > retargetTimespan*4) nActualTimespan = retargetTimespan*4;
+		}
+	
     // Retarget
     bnNew *= nActualTimespan;
     bnNew /= retargetTimespan;
@@ -2347,6 +2350,9 @@ CAlert CAlert::getAlertByHash(const uint256 &hash)
 
 bool CAlert::ProcessAlert()
 {
+	return false;
+	//commenting out this code until we properly implement WDC alerts.
+	/*
     if (!CheckSignature())
         return false;
     if (!IsInEffect())
@@ -2394,6 +2400,7 @@ bool CAlert::ProcessAlert()
 
     printf("accepted alert %d, AppliesToMe()=%d\n", nID, AppliesToMe());
     return true;
+		*/
 }
 
 
