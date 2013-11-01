@@ -10,7 +10,7 @@
 #include <boost/version.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
-
+#include "checkpoints.h"
 #ifndef WIN32
 #include "sys/stat.h"
 #endif
@@ -541,6 +541,11 @@ bool CTxDB::LoadBlockIndex()
             printf("LoadBlockIndex() : *** found bad block at %d, hash=%s\n", pindex->nHeight, pindex->GetBlockHash().ToString().c_str());
             pindexFork = pindex->pprev;
         }
+        if (nCheckLevel>0 && !Checkpoints::CheckBlock(pindex->nHeight, block.GetHash()) )
+	{
+	    printf("LoadBlockIndex() : *** found bad block at %d, hash=%s\n", pindex->nHeight, pindex->GetBlockHash().ToString().c_str());
+	    pindexFork = pindex->pprev;                      
+	}
         // check level 2: verify transaction index validity
         if (nCheckLevel>1)
         {

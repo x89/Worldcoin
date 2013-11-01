@@ -32,7 +32,8 @@ namespace Checkpoints
             ( 74,    uint256("0xc5621f7aed66b5d34cd1dec8c9f01801ec2193acb0a80f6b3abdbcaeebe9c23f"))
             (130,    uint256("0x7a5597740ef7b88e4cd664d8919752e1754d5fe93a1ee04f9844e3ca346475e6"))
             (200,    uint256("0x9ebe1c0ee596d5a0552a10d6dc4ef40fad865ca3a178400ba6bcafaefa6320cb"))
-	    (749526, uint256("0x27324520a2ecc22294018679426a12e9aed8b2ef09772b8523effccfae5523cc")) //chain prior to a double spend attack
+	    (749499, uint256("0xa30ea8d5be278f9d7097ffb6bb5fb9af4203f34289382adc4df11800c7e0292b"))//chain prior to a double spend attack
+	    (749526, uint256("0x27324520a2ecc22294018679426a12e9aed8b2ef09772b8523effccfae5523cc")) 
 			;
 
     bool CheckBlock(int nHeight, const uint256& hash)
